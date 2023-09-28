@@ -13,9 +13,10 @@
 	let challenge: any = {
 		start: null,
 		end: null,
-		path: null
+		path: []
 	};
 	let wordsSet: Set<string>;
+	let userPath: string[][] = [['', '', '']];
 
 	onMount(async () => {
 		let simplified = await fetch('./simplified.txt').then((r) => r.text());
@@ -27,6 +28,8 @@
 
 		wordsSet = new Set(wordsArray);
 		possible = wordsArray;
+
+		handleCreateChallenge(null);
 	});
 
 	afterUpdate(() => {
@@ -45,12 +48,111 @@
 	const handleCreateChallenge = (event: any) => {
 		let [start, end] = generateRandomValidStartAndTarget(possible);
 		let path = bfs(wordsSet, start, end);
-        if (path.length === 0) return
+		if (path.length === 0) return;
 		challenge = {
 			start,
 			end,
 			path
 		};
+
+		// add number of userPath as the number of items in path
+		userPath = [];
+		for (let i = 0; i < path.length; i++) {
+			userPath = [...userPath, ['', '', '']];
+		}
+	};
+
+	const addNewWord = (event: any) => {
+		userPath = [...userPath, ['', '', '']];
+	};
+
+	const check = (event: any) => {
+		let correct = true;
+
+		// check that each user word only has one letter difference from the last
+		for (let i = 0; i < userPath.length - 1; i++) {
+			let word = userPath[i];
+			let nextWord = userPath[i + 1];
+			let diff = 0;
+			for (let j = 0; j < word.length; j++) {
+				if (word[j] !== nextWord[j]) {
+					diff++;
+				}
+			}
+			if (diff !== 1) {
+				correct = false;
+			}
+		}
+
+		// check that each user word is a valid word
+		for (let i = 0; i < userPath.length; i++) {
+			let word = userPath[i];
+			if (!wordsSet.has(word.join(''))) {
+				correct = false;
+			}
+		}
+
+		// check that the first word is the start word
+		if (userPath[0].join('') !== challenge.start) {
+			correct = false;
+		}
+
+		// check that the last word is the end word
+		if (userPath[userPath.length - 1].join('') !== challenge.end) {
+			correct = false;
+		}
+
+		if (correct) {
+			alert('correct');
+		} else {
+			alert('incorrect');
+		}
+	};
+
+	const onFocus = (index: number, i: number) => (e: any) => {
+		// if theres a letter move to after it
+		if (userPath[index][i]) {
+			const elem = document.getElementById(index + '-' + i);
+			if (elem) {
+				elem.select();
+			}
+		}
+	};
+
+	const onKeyup = (index: number, i: number) => (e: any) => {
+		
+
+		if (e.key === 'Backspace') {
+			userPath[index][i] = '';
+
+			const sibling = e.target.parentElement.previousElementSibling;
+			if (!sibling) {
+				const newlineSibling = document.getElementById(index - 1 + '-' + 2);
+				if (newlineSibling) {
+					newlineSibling.focus();
+				}
+				return;
+			}
+			const elems = sibling.children;
+			if (elems) {
+				const elem = elems[0];
+				elem.focus();
+			}
+		} else {
+			if (e.target.value === '') return;
+			userPath[index][i] = e.target.value;
+			console.log(index, i, e.target.value);
+			const sibling = document.getElementById(index + '-' + (i + 1));
+			console.log(sibling);
+			if (!sibling) {
+				const newlineSibling = document.getElementById(index + 1 + '-' + 0);
+				if (newlineSibling) {
+					newlineSibling.focus();
+				}
+				return;
+			}
+			sibling.focus();
+		}
 	};
 </script>
 
@@ -88,7 +190,42 @@
 					end <strong>{challenge.end}</strong>
 				</div>
 				<div>
-					<textarea class="p-2 bg-gray-200 w-full min-h-[50vh]" />
+					<h3>solution</h3>
+					<div class="flex flex-col space-y-1 p-2 bg-gray-200 w-full">
+						{#each challenge.path as word, index}
+							<ul class="flex">
+								{#each word as letter}
+									<li class="w-10 h-10 px-1 border-2 text-center border-gray-300 rounded">
+										{letter}
+									</li>
+								{/each}
+							</ul>
+						{/each}
+					</div>
+					<h3>attempt</h3>
+					<div class="flex flex-col space-y-1 p-2 bg-gray-200 w-full min-h-[50vh]">
+						{#each userPath as word, index}
+							<ul class="flex">
+								{#each word as letter, i (i)}
+									<li class="w-10 h-10 px-1 border-2 text-center border-gray-300 rounded">
+										<input
+											id={index + '-' + i}
+											type="text"
+											value={userPath[index][i]}
+											class="w-full h-full text-center"
+											maxlength="1"
+											on:focus={onFocus(index, i)}
+											on:keyup={onKeyup(index, i)}
+										/>
+									</li>
+								{/each}
+							</ul>
+						{/each}
+						<button class="bg-blue-200 px-3 py-1 m-1 rounded-full" on:click={addNewWord}
+							>Add Word</button
+						>
+						<button class="bg-green-200 px-3 py-1 m-1 rounded-full" on:click={check}>Check</button>
+					</div>
 				</div>
 			</div>
 		</div>
